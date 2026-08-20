@@ -4,10 +4,11 @@ import nh.demo.plantify.plant.PlantRegisteredEvent;
 import nh.demo.plantify.shared.CareTaskType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.event.TransactionalEventListener;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -22,10 +23,12 @@ public class UsageTracker {
         this.usageRepository = usageRepository;
     }
 
-    // ⚠️ Eigener Thread => eigene Transaktion, unabhängig von registerPlant!
-    //   - gucken wir uns gleich an
-    @EventListener
-    @Transactional
+    // Jetzt: eigene Transaktion, und erst NACH dem Commit der Original-TX
+    //  -> @TransactionalEventListener  = erst nach Commit
+    //  -> REQUIRES_NEW                 = eigene Transaktion
+    //  -> @Async                       = eigener Thread
+    @TransactionalEventListener
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     @Async
     void onPlantCreated(PlantRegisteredEvent event) {
         registerSetupFee(event.plantId(), event.ownerId());
